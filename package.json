@@ -1,0 +1,27 @@
+{
+  "name": "sony-app",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "manufacturer": "NEP",
+  "product": ["Sony App"],
+  "shortname": "sony-app",
+  "description": "Companion module for Sony Mixer App",
+  "keywords": ["Sony", "Mixer"],
+  "homepage": "https://github.com/yourusername/companion-module-sony-app",
+  "scripts": {
+    "dev": "tsc -w",
+    "build": "tsc",
+    "prepare": "tsc"
+  },
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "@companion-module/base": "~1.4.1",
+    "socket.io-client": "^4.7.4",
+    "typescript": "^4.9.5"
+  },
+  "devDependencies": {
+    "@companion-module/tools": "^1.3.2",
+    "@types/node": "^18.15.3"
+  }
+} 
