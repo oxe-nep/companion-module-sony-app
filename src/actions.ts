@@ -4,20 +4,22 @@ import { SonyAppInstance } from './index'
 export function UpdateActions(instance: SonyAppInstance): void {
   const actions: CompanionActionDefinitions = {}
 
-  // Skapa en array med alla AUX-alternativ för dropdown
+  // Create an array with all AUX options for dropdown
   const auxChoices: { id: string; label: string }[] = []
   
-  // Lägg till AUX 1-48
-  for (let i = 1; i <= 48; i++) {
-    const auxId = `aux${i}`
-    const auxName = instance.getAuxName(auxId) || `AUX ${i}`
+  // Get actual AUX list from the instance instead of assuming 48 AUX
+  const auxList = instance.getAvailableAux()
+  
+  // Add available AUX to choices
+  auxList.forEach(auxId => {
+    const auxName = instance.getAuxName(auxId) || `AUX ${auxId.replace('aux', '')}`
     auxChoices.push({
       id: auxId,
       label: auxName
     })
-  }
-
-  // En enda action för att ställa in AUX-källa med dropdown för AUX-val
+  })
+  
+  // Action to set AUX source with dropdown for AUX selection
   actions.set_aux_source = {
     name: 'Set source on AUX',
     description: 'Select AUX and set source',
@@ -27,7 +29,10 @@ export function UpdateActions(instance: SonyAppInstance): void {
         label: 'AUX',
         id: 'auxId',
         default: 'aux1',
-        choices: auxChoices
+        choices: auxChoices.map(choice => ({
+          id: choice.id,
+          label: choice.label
+        }))
       },
       {
         type: 'dropdown',
@@ -49,10 +54,11 @@ export function UpdateActions(instance: SonyAppInstance): void {
         isVisible: (options) => options.sourceType === 'id'
       },
       {
-        type: 'textinput',
+        type: 'dropdown',
         label: 'Source Name',
         id: 'sourceName',
         default: '',
+        choices: instance.getInputChoices(),
         isVisible: (options) => options.sourceType === 'name'
       }
     ],
@@ -63,53 +69,14 @@ export function UpdateActions(instance: SonyAppInstance): void {
         const sourceId = action.options.sourceId as number
         await instance.setAuxSource(auxId, sourceId.toString())
       } else {
-        // Hitta source ID baserat på namn
-        const sourceName = action.options.sourceName as string
-        const allInputs = instance.getAllInputs()
-        
-        // Sök efter namn eller anpassat namn
-        const matchingInput = allInputs.find(input => 
-          input.name === sourceName || 
-          input.customName === sourceName
-        )
-        
-        if (matchingInput) {
-          await instance.setAuxSource(auxId, matchingInput.id)
-        } else {
-          instance.log('error', `Kan inte hitta källan med namn: ${sourceName}`)
-        }
+        // Find source ID based on name
+        const sourceId = action.options.sourceName as string
+        await instance.setAuxSource(auxId, sourceId)
       }
-    }
-  }
-  
-  // Action för att växla flera källor till samma AUX
-  actions.preset_source = {
-    name: 'Preset Source to AUX',
-    description: 'Set source on selected AUX',
-    options: [
-      {
-        type: 'dropdown',
-        label: 'AUX',
-        id: 'auxId',
-        default: 'aux1',
-        choices: auxChoices
-      },
-      {
-        type: 'dropdown',
-        label: 'Source',
-        id: 'sourceId',
-        default: '1',
-        choices: instance.getInputChoices()
-      }
-    ],
-    callback: async (action): Promise<void> => {
-      const auxId = action.options.auxId as string
-      const sourceId = action.options.sourceId as string
-      await instance.setAuxSource(auxId, sourceId)
     }
   }
 
-  // Action för att ansluta till mixer
+  // Action to connect to mixer
   actions.connect_mixer = {
     name: 'Connect to Sony Switcher',
     description: 'Action to trigger connection to Sony Switcher from backend',
@@ -119,7 +86,7 @@ export function UpdateActions(instance: SonyAppInstance): void {
     }
   };
 
-  // Action för att koppla från mixer
+  // Action to disconnect from mixer
   actions.disconnect_mixer = {
     name: 'Disconnect from Sony Switcher',
     description: 'Action to trigger disconnection from Sony Switcher from backend',
