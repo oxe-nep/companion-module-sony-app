@@ -157,7 +157,7 @@ export class SonyAppInstance extends InstanceBase<Config> {
     // Update variables for each AUX
     for (const [auxId, status] of Object.entries(this.auxStatuses)) {
       // Variable for the active source name
-      const sourceNameVar = '${auxId}_source`
+      const sourceNameVar = `${auxId}_source`
       const sourceName = status.customSourceName || status.sourceName || 'Unknown'
       this.setVariableValues({ [sourceNameVar]: sourceName })
       
