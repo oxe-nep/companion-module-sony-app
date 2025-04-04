@@ -50,7 +50,7 @@ export function UpdateActions(instance: SonyAppInstance): void {
         id: 'sourceId',
         default: 1,
         min: 1,
-        max: 24,
+        max: 1000,
         isVisible: (options) => options.sourceType === 'id'
       },
       {

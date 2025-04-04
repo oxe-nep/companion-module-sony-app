@@ -411,11 +411,6 @@ export class SonyAppInstance extends InstanceBase<Config> {
       }
     })
     
-    // Add additional sources that might be available
-    for (let i = 1; i <= 24; i++) {
-      allInputIds.add(i.toString())
-    }
-    
     // Create choices from all available inputs
     Array.from(allInputIds)
       .sort((a, b) => parseInt(a) - parseInt(b))
