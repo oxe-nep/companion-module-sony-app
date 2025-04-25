@@ -48,7 +48,7 @@ export class SonyAppInstance extends InstanceBase<Config> {
     this.config = config
     this.updateStatus(InstanceStatus.Connecting)
     this.initWebSocket()
-    
+
     try {
       // Fetch names from server before initializing actions and feedbacks
       await this.fetchNames()
@@ -72,6 +72,7 @@ export class SonyAppInstance extends InstanceBase<Config> {
 
   async configUpdated(config: Config): Promise<void> {
     this.config = config
+    this.initWebSocket()
     
     try {
       // Fetch names from server when configuration is updated
@@ -82,7 +83,7 @@ export class SonyAppInstance extends InstanceBase<Config> {
     }
     
     this.updateVariableDefinitions()
-    this.initWebSocket()
+
   }
 
   getConfigFields(): SomeCompanionConfigField[] {
