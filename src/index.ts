@@ -67,8 +67,13 @@ export class SonyAppInstance extends InstanceBase<Config> {
   async configUpdated(config: Config): Promise<void> {
     this.config = config
     
-    // Fetch names from server when configuration is updated
-    await this.fetchNames()
+    try {
+      // Fetch names from server when configuration is updated
+      await this.fetchNames()
+    } catch (error) {
+      this.log('error', `Failed to fetch names: ${error}`)
+      // Continue with initialization even if fetch fails
+    }
     
     this.updateVariableDefinitions()
     this.initWebSocket()
