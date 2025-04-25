@@ -46,13 +46,24 @@ export class SonyAppInstance extends InstanceBase<Config> {
 
   async init(config: Config): Promise<void> {
     this.config = config
-    this.updateStatus(InstanceStatus.Ok)
+    this.updateStatus(InstanceStatus.Connecting)
 
     try {
-      // Fetch names from server before initializing actions and feedbacks
-      await this.fetchNames()
+      // Set a timeout for the initialization
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Initialization timed out')), 10000)
+      })
+
+      // Race between fetch and timeout
+      await Promise.race([
+        this.fetchNames(),
+        timeoutPromise
+      ])
+
+      this.updateStatus(InstanceStatus.Ok)
     } catch (error) {
-      this.log('error', `Failed to fetch names: ${error}`)
+      this.log('error', `Initialization failed: ${error}`)
+      this.updateStatus(InstanceStatus.ConnectionFailure)
       // Continue with initialization even if fetch fails
     }
 
@@ -71,12 +82,24 @@ export class SonyAppInstance extends InstanceBase<Config> {
 
   async configUpdated(config: Config): Promise<void> {
     this.config = config
+    this.updateStatus(InstanceStatus.Connecting)
     
     try {
-      // Fetch names from server when configuration is updated
-      await this.fetchNames()
+      // Set a timeout for the configuration update
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Configuration update timed out')), 10000)
+      })
+
+      // Race between fetch and timeout
+      await Promise.race([
+        this.fetchNames(),
+        timeoutPromise
+      ])
+
+      this.updateStatus(InstanceStatus.Ok)
     } catch (error) {
-      this.log('error', `Failed to fetch names: ${error}`)
+      this.log('error', `Configuration update failed: ${error}`)
+      this.updateStatus(InstanceStatus.ConnectionFailure)
       // Continue with initialization even if fetch fails
     }
     
