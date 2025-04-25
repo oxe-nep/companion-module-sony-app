@@ -46,31 +46,38 @@ export class SonyAppInstance extends InstanceBase<Config> {
 
   async init(config: Config): Promise<void> {
     this.config = config
-    this.updateStatus(InstanceStatus.Connecting)
-
-    try {
-      // Set a timeout for the initialization
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Initialization timed out')), 10000)
-      })
-
-      // Race between fetch and timeout
-      await Promise.race([
-        this.fetchNames(),
-        timeoutPromise
-      ])
-
-      this.updateStatus(InstanceStatus.Ok)
-    } catch (error) {
-      this.log('error', `Initialization failed: ${error}`)
-      this.updateStatus(InstanceStatus.ConnectionFailure)
-      // Continue with initialization even if fetch fails
-    }
-
+    
+    // Update actions and feedbacks immediately
     this.updateActions()
     this.updateFeedbacks()
     this.updateVariableDefinitions()
-    this.initWebSocket()
+    
+    // Only try to connect if we have a valid host
+    if (this.config.host && this.config.host !== '') {
+      this.updateStatus(InstanceStatus.Connecting)
+      
+      try {
+        // Set a timeout for the initialization
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Initialization timed out')), 10000)
+        })
+
+        // Race between fetch and timeout
+        await Promise.race([
+          this.fetchNames(),
+          timeoutPromise
+        ])
+
+        this.updateStatus(InstanceStatus.Ok)
+        this.initWebSocket()
+      } catch (error) {
+        this.log('error', `Initialization failed: ${error}`)
+        this.updateStatus(InstanceStatus.ConnectionFailure)
+      }
+    } else {
+      this.updateStatus(InstanceStatus.Disconnected)
+      this.log('info', 'Waiting for configuration')
+    }
   }
 
   async destroy(): Promise<void> {
@@ -82,29 +89,38 @@ export class SonyAppInstance extends InstanceBase<Config> {
 
   async configUpdated(config: Config): Promise<void> {
     this.config = config
-    this.updateStatus(InstanceStatus.Connecting)
     
-    try {
-      // Set a timeout for the configuration update
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Configuration update timed out')), 10000)
-      })
-
-      // Race between fetch and timeout
-      await Promise.race([
-        this.fetchNames(),
-        timeoutPromise
-      ])
-
-      this.updateStatus(InstanceStatus.Ok)
-    } catch (error) {
-      this.log('error', `Configuration update failed: ${error}`)
-      this.updateStatus(InstanceStatus.ConnectionFailure)
-      // Continue with initialization even if fetch fails
-    }
-    
+    // Update actions and feedbacks immediately
+    this.updateActions()
+    this.updateFeedbacks()
     this.updateVariableDefinitions()
-    this.initWebSocket()
+    
+    // Only try to connect if we have a valid host
+    if (this.config.host && this.config.host !== '') {
+      this.updateStatus(InstanceStatus.Connecting)
+      
+      try {
+        // Set a timeout for the configuration update
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Configuration update timed out')), 10000)
+        })
+
+        // Race between fetch and timeout
+        await Promise.race([
+          this.fetchNames(),
+          timeoutPromise
+        ])
+
+        this.updateStatus(InstanceStatus.Ok)
+        this.initWebSocket()
+      } catch (error) {
+        this.log('error', `Configuration update failed: ${error}`)
+        this.updateStatus(InstanceStatus.ConnectionFailure)
+      }
+    } else {
+      this.updateStatus(InstanceStatus.Disconnected)
+      this.log('info', 'Waiting for configuration')
+    }
   }
 
   getConfigFields(): SomeCompanionConfigField[] {
