@@ -46,38 +46,21 @@ export class SonyAppInstance extends InstanceBase<Config> {
 
   async init(config: Config): Promise<void> {
     this.config = config
+    this.updateStatus(InstanceStatus.Connecting)
+    this.initWebSocket()
     
-    // Update actions and feedbacks immediately
+    try {
+      // Fetch names from server before initializing actions and feedbacks
+      await this.fetchNames()
+    } catch (error) {
+      this.log('error', `Failed to fetch names: ${error}`)
+      // Continue with initialization even if fetch fails
+    }
+
     this.updateActions()
     this.updateFeedbacks()
     this.updateVariableDefinitions()
-    
-    // Only try to connect if we have a valid host
-    if (this.config.host && this.config.host !== '') {
-      this.updateStatus(InstanceStatus.Connecting)
-      
-      try {
-        // Set a timeout for the initialization
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Initialization timed out')), 10000)
-        })
 
-        // Race between fetch and timeout
-        await Promise.race([
-          this.fetchNames(),
-          timeoutPromise
-        ])
-
-        this.updateStatus(InstanceStatus.Ok)
-        this.initWebSocket()
-      } catch (error) {
-        this.log('error', `Initialization failed: ${error}`)
-        this.updateStatus(InstanceStatus.ConnectionFailure)
-      }
-    } else {
-      this.updateStatus(InstanceStatus.Disconnected)
-      this.log('info', 'Waiting for configuration')
-    }
   }
 
   async destroy(): Promise<void> {
@@ -90,37 +73,16 @@ export class SonyAppInstance extends InstanceBase<Config> {
   async configUpdated(config: Config): Promise<void> {
     this.config = config
     
-    // Update actions and feedbacks immediately
-    this.updateActions()
-    this.updateFeedbacks()
-    this.updateVariableDefinitions()
-    
-    // Only try to connect if we have a valid host
-    if (this.config.host && this.config.host !== '') {
-      this.updateStatus(InstanceStatus.Connecting)
-      
-      try {
-        // Set a timeout for the configuration update
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Configuration update timed out')), 10000)
-        })
-
-        // Race between fetch and timeout
-        await Promise.race([
-          this.fetchNames(),
-          timeoutPromise
-        ])
-
-        this.updateStatus(InstanceStatus.Ok)
-        this.initWebSocket()
-      } catch (error) {
-        this.log('error', `Configuration update failed: ${error}`)
-        this.updateStatus(InstanceStatus.ConnectionFailure)
-      }
-    } else {
-      this.updateStatus(InstanceStatus.Disconnected)
-      this.log('info', 'Waiting for configuration')
+    try {
+      // Fetch names from server when configuration is updated
+      await this.fetchNames()
+    } catch (error) {
+      this.log('error', `Failed to fetch names: ${error}`)
+      // Continue with initialization even if fetch fails
     }
+    
+    this.updateVariableDefinitions()
+    this.initWebSocket()
   }
 
   getConfigFields(): SomeCompanionConfigField[] {
@@ -129,75 +91,88 @@ export class SonyAppInstance extends InstanceBase<Config> {
   
   // Fetch input and aux names from server
   private async fetchNames(): Promise<void> {
-    try {
-      const baseUrl = `http://${this.config.host}:${this.config.port}`;
-      this.log('info', `Attempting to fetch names from ${baseUrl}`);
-      
-      // Fetch all inputs from server
+    // Only try to fetch if we have a valid connection
+    if (this.socket?.connected) {
       try {
-        const inputsResponse = await fetch(`${baseUrl}/api/inputs`);
+        const baseUrl = `http://${this.config.host}:${this.config.port}`;
+        this.log('info', `Attempting to fetch names from ${baseUrl}`);
         
-        if (inputsResponse.ok) {
-          const inputs = await inputsResponse.json() as Input[];
-          this.allInputs = inputs;
-          this.log('info', `Fetched ${inputs.length} inputs from server`);
+        // Fetch all inputs from server
+        try {
+          const inputsResponse = await fetch(`${baseUrl}/api/inputs`);
           
-          // Also update inputNames with names from inputs
-          inputs.forEach(input => {
-            if (input.customName) {
-              this.inputNames[input.id] = input.customName;
-            }
-          });
-        } else {
-          this.log('warn', `Could not fetch inputs: HTTP ${inputsResponse.status} - ${inputsResponse.statusText}`);
-        }
-      } catch (inputsErr) {
-        this.log('error', `Error during inputs fetch: ${inputsErr}`);
-      }
-      
-      // Fetch all AUX statuses from server
-      try {
-        const auxResponse = await fetch(`${baseUrl}/api/aux`);
-        
-        if (auxResponse.ok) {
-          const auxList = await auxResponse.json() as AuxStatus[];
-          
-          // Update our auxStatuses
-          if (Array.isArray(auxList) && auxList.length > 0) {
-            this.auxStatuses = {};
-            auxList.forEach(auxStatus => {
-              this.auxStatuses[auxStatus.auxId] = auxStatus;
+          if (inputsResponse.ok) {
+            const inputs = await inputsResponse.json() as Input[];
+            this.allInputs = inputs;
+            this.log('info', `Fetched ${inputs.length} inputs from server`);
+            
+            // Also update inputNames with names from inputs
+            inputs.forEach(input => {
+              if (input.customName) {
+                this.inputNames[input.id] = input.customName;
+              }
             });
-            this.log('info', `Fetched ${auxList.length} AUX statuses from server`);
           } else {
-            this.log('warn', 'No AUX statuses received from server');
+            this.log('warn', `Could not fetch inputs: HTTP ${inputsResponse.status} - ${inputsResponse.statusText}`);
+            throw new Error(`HTTP error! status: ${inputsResponse.status}`);
           }
-        } else {
-          this.log('warn', `Could not fetch AUX statuses: HTTP ${auxResponse.status} - ${auxResponse.statusText}`);
+        } catch (inputsErr) {
+          this.log('error', `Error during inputs fetch: ${inputsErr}`);
+          throw inputsErr;
         }
-      } catch (auxErr) {
-        this.log('error', `Error during AUX statuses fetch: ${auxErr}`);
-      }
-      
-      // Fetch aux names
-      try {
-        const auxNamesResponse = await fetch(`${baseUrl}/api/aux-names`);
         
-        if (auxNamesResponse.ok) {
-          const data = await auxNamesResponse.json();
-          this.auxNames = data;
-          this.log('info', `Fetched ${Object.keys(this.auxNames).length} aux names from server`);
-        } else {
-          this.log('warn', `Could not fetch aux names: HTTP ${auxNamesResponse.status} - ${auxNamesResponse.statusText}`);
+        // Fetch all AUX statuses from server
+        try {
+          const auxResponse = await fetch(`${baseUrl}/api/aux`);
+          
+          if (auxResponse.ok) {
+            const auxList = await auxResponse.json() as AuxStatus[];
+            
+            // Update our auxStatuses
+            if (Array.isArray(auxList) && auxList.length > 0) {
+              this.auxStatuses = {};
+              auxList.forEach(auxStatus => {
+                this.auxStatuses[auxStatus.auxId] = auxStatus;
+              });
+              this.log('info', `Fetched ${auxList.length} AUX statuses from server`);
+            } else {
+              this.log('warn', 'No AUX statuses received from server');
+            }
+          } else {
+            this.log('warn', `Could not fetch AUX statuses: HTTP ${auxResponse.status} - ${auxResponse.statusText}`);
+            throw new Error(`HTTP error! status: ${auxResponse.status}`);
+          }
+        } catch (auxErr) {
+          this.log('error', `Error during AUX statuses fetch: ${auxErr}`);
+          throw auxErr;
         }
-      } catch (auxErr) {
-        this.log('error', `Error during aux names fetch: ${auxErr}`);
+        
+        // Fetch aux names
+        try {
+          const auxNamesResponse = await fetch(`${baseUrl}/api/aux-names`);
+          
+          if (auxNamesResponse.ok) {
+            const data = await auxNamesResponse.json();
+            this.auxNames = data;
+            this.log('info', `Fetched ${Object.keys(this.auxNames).length} aux names from server`);
+          } else {
+            this.log('warn', `Could not fetch aux names: HTTP ${auxNamesResponse.status} - ${auxNamesResponse.statusText}`);
+            throw new Error(`HTTP error! status: ${auxNamesResponse.status}`);
+          }
+        } catch (auxErr) {
+          this.log('error', `Error during aux names fetch: ${auxErr}`);
+          throw auxErr;
+        }
+        
+        // Update variables even with empty data
+        this.updateVariableDefinitions();
+      } catch (err) {
+        this.log('error', `Error fetching names: ${err}`);
+        throw err;
       }
-      
-      // Update variables even with empty data
-      this.updateVariableDefinitions();
-    } catch (err) {
-      this.log('error', `Error fetching names: ${err}`);
+    } else {
+      this.log('warn', 'Cannot fetch names: Not connected to server');
+      throw new Error('Not connected to server');
     }
   }
   
@@ -329,12 +304,22 @@ export class SonyAppInstance extends InstanceBase<Config> {
     this.log('info', `Connecting to ${url}`)
     
     try {
-      this.socket = io(url)
+      this.socket = io(url, {
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 10000
+      })
 
       this.socket.on('connect', () => {
         this.updateStatus(InstanceStatus.Ok)
         this.log('info', 'Connected to Sony Mixer App')
         this.socket?.emit('requestRefresh')
+      })
+
+      this.socket.on('connect_error', (error) => {
+        this.log('error', `Socket connection error: ${error}`)
+        this.updateStatus(InstanceStatus.ConnectionFailure)
       })
 
       this.socket.on('disconnect', () => {
@@ -343,7 +328,7 @@ export class SonyAppInstance extends InstanceBase<Config> {
       })
 
       this.socket.on('error', (error) => {
-        this.log('error', 'Socket error: ' + error)
+        this.log('error', `Socket error: ${error}`)
         this.updateStatus(InstanceStatus.ConnectionFailure)
       })
 
