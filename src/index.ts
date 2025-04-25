@@ -48,8 +48,13 @@ export class SonyAppInstance extends InstanceBase<Config> {
     this.config = config
     this.updateStatus(InstanceStatus.Ok)
 
-    // Fetch names from server before initializing actions and feedbacks
-    await this.fetchNames()
+    try {
+      // Fetch names from server before initializing actions and feedbacks
+      await this.fetchNames()
+    } catch (error) {
+      this.log('error', `Failed to fetch names: ${error}`)
+      // Continue with initialization even if fetch fails
+    }
 
     this.updateActions()
     this.updateFeedbacks()
