@@ -96,5 +96,20 @@ export function UpdateActions(instance: SonyAppInstance): void {
     }
   };
 
+  // Action to refresh names and variables from backend
+  actions.refresh_names = {
+    name: 'Refresh Names and Variables',
+    description: 'Action to refresh all names and variables from backend',
+    options: [],
+    callback: async (action): Promise<void> => {
+      try {
+        await instance.fetchNames();
+        instance.log('info', 'Successfully refreshed names and variables from backend');
+      } catch (error) {
+        instance.log('error', `Failed to refresh names and variables: ${error}`);
+      }
+    }
+  };
+
   instance.setActionDefinitions(actions)
 } 

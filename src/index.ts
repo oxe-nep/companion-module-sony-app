@@ -91,7 +91,7 @@ export class SonyAppInstance extends InstanceBase<Config> {
   }
   
   // Fetch input and aux names from server
-  private async fetchNames(): Promise<void> {
+  public async fetchNames(): Promise<void> {
     // Only try to fetch if we have a valid connection
     if (this.socket?.connected) {
       try {
